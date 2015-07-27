@@ -40,6 +40,7 @@ public abstract class AbstractGeneralDataRegionTestCase extends AbstractRegionIm
 
 	protected static final String VALUE1 = "value1";
 	protected static final String VALUE2 = "value2";
+	protected static final String VALUE3 = "value3";
 
 	protected StandardServiceRegistryBuilder createStandardServiceRegistryBuilder() {
 		return CacheTestUtil.buildBaselineStandardServiceRegistryBuilder(
