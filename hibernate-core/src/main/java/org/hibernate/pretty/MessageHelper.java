@@ -8,6 +8,7 @@ package org.hibernate.pretty;
 import java.io.Serializable;
 
 import org.hibernate.collection.spi.PersistentCollection;
+import org.hibernate.engine.spi.EntityEntry;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
@@ -259,11 +260,15 @@ public final class MessageHelper {
 					ownerIdentifierType.getReturnedClass() ) ) {
 				ownerKey = collectionKey;
 			}
-			else {
-				ownerKey = session.getPersistenceContext()
-						.getEntry( collection.getOwner() ).getId();
+			else if (collection == null) {
+				ownerKey = null;
 			}
-			s.append( ownerIdentifierType.toLoggableString( 
+			else {
+				EntityEntry entityEntry = session.getPersistenceContext()
+					.getEntry(collection.getOwner());
+				ownerKey = entityEntry == null ? null : entityEntry.getId();
+			}
+			s.append( ownerIdentifierType.toLoggableString(
 					ownerKey, session.getFactory() ) );
 		}
 		s.append( ']' );
