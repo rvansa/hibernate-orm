@@ -70,8 +70,19 @@ public class XaTransactionImpl implements Transaction {
          if ( synchronizations != null ) {
             for ( int i = 0; i < synchronizations.size(); i++ ) {
                Synchronization s = (Synchronization) synchronizations.get( i );
-               s.beforeCompletion();
+               try {
+                  s.beforeCompletion();
+               } catch (Throwable throwable) {
+                  log.error("Exception in synchronization.beforeCompletion()", throwable);
+                  status = Status.STATUS_ROLLING_BACK;
+                  break;
+               }
             }
+         }
+
+         if (status == Status.STATUS_ROLLING_BACK) {
+            rollback();
+            return;
          }
          
          if (!runXaResourcePrepare()) {
