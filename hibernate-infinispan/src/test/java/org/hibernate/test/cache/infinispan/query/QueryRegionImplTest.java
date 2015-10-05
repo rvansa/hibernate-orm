@@ -43,10 +43,7 @@ import org.jboss.logging.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Tests of QueryResultRegionImpl.
@@ -382,6 +379,19 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
       });
    }
 
+	@Test
+	@TestForIssue(jiraKey = "HHH-10163")
+	public void testEvictAll() throws Exception {
+		withQueryRegion((sessionFactory, region) -> {
+			withSession(sessionFactory, s -> region.put(s, KEY, VALUE1));
+			withSession(sessionFactory, s -> assertEquals(VALUE1, region.get(s, KEY)));
+			region.evictAll();
+			withSession(sessionFactory, s -> assertNull(region.get(s, KEY)));
+			assertEquals(Collections.EMPTY_MAP, region.toMap());
+		});
+	}
+
+
    @Listener
    public class GetBlocker {
       private final CountDownLatch latch;
@@ -471,5 +481,5 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
             Assert.fail(message);
          }
       }
-   }
+   }	
 }
