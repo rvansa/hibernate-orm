@@ -32,6 +32,10 @@
       <priority value="DEBUG"/>
    </category>
 
+   <category name="org.hibernate">
+      <priority value="DEBUG"/>
+   </category>
+   
    <!-- This triggers NPE in AnyEquivalence in Infinispan 7.2.4 -->
    <category name="org.infinispan.transaction.impl.TransactionTable">
       <priority value="DEBUG"/>
