@@ -35,6 +35,10 @@
    <category name="org.hibernate">
       <priority value="DEBUG"/>
    </category>
+
+   <category name="org.hibernate.resource.jdbc">
+	<priority value="TRACE"/>
+   </category>
    
    <!-- This triggers NPE in AnyEquivalence in Infinispan 7.2.4 -->
    <category name="org.infinispan.transaction.impl.TransactionTable">
