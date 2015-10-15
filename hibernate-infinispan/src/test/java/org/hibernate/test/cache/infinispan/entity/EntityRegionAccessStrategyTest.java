@@ -423,7 +423,7 @@ public class EntityRegionAccessStrategyTest extends
 		blocker.start();
 		assertTrue("Active tx has done an update", pferLatch.await(1, TimeUnit.SECONDS));
 		putter.start();
-		assertTrue("putFromLoadreturns promtly", pferCompletionLatch.await(10, TimeUnit.MILLISECONDS));
+		assertTrue("putFromLoad returns promptly", pferCompletionLatch.await(200, TimeUnit.MILLISECONDS));
 
 		commitLatch.countDown();
 

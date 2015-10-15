@@ -6,6 +6,8 @@
  */
 package org.hibernate.test.cache.infinispan.timestamp;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 import org.hibernate.boot.registry.StandardServiceRegistry;
@@ -17,6 +19,7 @@ import org.hibernate.cache.spi.Region;
 import org.hibernate.cache.spi.RegionFactory;
 import org.hibernate.cache.spi.UpdateTimestampsCache;
 
+import org.hibernate.cache.spi.access.AccessType;
 import org.hibernate.test.cache.infinispan.AbstractGeneralDataRegionTest;
 import org.hibernate.test.cache.infinispan.functional.entities.Account;
 import org.hibernate.test.cache.infinispan.functional.entities.AccountHolder;
@@ -26,6 +29,7 @@ import org.hibernate.test.cache.infinispan.util.ClassLoaderAwareCache;
 
 import org.hibernate.test.cache.infinispan.util.TestInfinispanRegionFactory;
 import org.infinispan.AdvancedCache;
+import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.context.Flag;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryActivated;
@@ -47,7 +51,13 @@ import org.infinispan.notifications.cachelistener.event.Event;
  */
 public class TimestampsRegionImplTest extends AbstractGeneralDataRegionTest {
 
-	 @Override
+	@Override
+	public List<Object[]> getCacheModeParameters() {
+		// Timestamps cache configuration won't be overwritten and we don't use access strategy
+		return Collections.singletonList(new Object[] {CacheMode.REPL_ASYNC, AccessType.READ_WRITE });
+	}
+
+	@Override
 	protected String getStandardRegionName(String regionPrefix) {
 		return regionPrefix + "/" + UpdateTimestampsCache.class.getName();
 	}

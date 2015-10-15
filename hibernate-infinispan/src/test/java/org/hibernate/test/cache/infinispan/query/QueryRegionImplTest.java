@@ -40,6 +40,7 @@ import org.infinispan.notifications.cachelistener.event.CacheEntryVisitedEvent;
 import org.infinispan.util.concurrent.IsolationLevel;
 
 import org.jboss.logging.Logger;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -67,7 +68,7 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 		return regionPrefix + "/" + StandardQueryCache.class.getName();
 	}
 
-   @Override
+	@Override
 	protected AdvancedCache getInfinispanCache(InfinispanRegionFactory regionFactory) {
 		return regionFactory.getCacheManager().getCache( getStandardRegionName( REGION_PREFIX ) ).getAdvancedCache();
 	}
@@ -127,21 +128,27 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 				}
 			};
 
-			reader.setDaemon(true);
-			writer.setDaemon(true);
+			try {
+				reader.setDaemon(true);
+				writer.setDaemon(true);
 
-			writer.start();
-			assertFalse("Writer is blocking", completionLatch.await(100, TimeUnit.MILLISECONDS));
+				writer.start();
+				holder.assertFalse("Writer is blocking", completionLatch.await(100, TimeUnit.MILLISECONDS));
 
-			// Start the reader
-			reader.start();
-			assertTrue("Reader finished promptly", readerLatch.await(100, TimeUnit.MILLISECONDS));
+				// Start the reader
+				reader.start();
+				holder.assertTrue("Reader finished promptly", readerLatch.await(100, TimeUnit.MILLISECONDS));
 
-			writerLatch.countDown();
+				writerLatch.countDown();
 
-			assertTrue("Reader finished promptly", completionLatch.await(100, TimeUnit.MILLISECONDS));
+				holder.assertTrue("Writer finished promptly", completionLatch.await(100, TimeUnit.MILLISECONDS));
 
-			assertEquals(VALUE2, callWithSession(sessionFactory, session -> region.get(session, KEY)));
+				holder.checkExceptions();
+
+				assertEquals(VALUE2, callWithSession(sessionFactory, session -> region.get(session, KEY)));
+			} finally {
+				writerLatch.countDown();
+			}
 		});
 	}
 
@@ -193,18 +200,18 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 			reader.setDaemon( true );
 			writer.setDaemon( true );
 
-			boolean unblocked = false;
 			try {
 				reader.start();
 				writer.start();
 
-				assertFalse( "Reader is blocking", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
+				holder.assertFalse( "Reader is blocking", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
 				// Start the writer
 				writerLatch.countDown();
-				assertTrue( "Writer finished promptly", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
+				holder.assertTrue( "Writer finished promptly", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
 
 				blockerLatch.countDown();
-				unblocked = true;
+
+				holder.checkExceptions();
 
 				if ( IsolationLevel.REPEATABLE_READ.equals( cache.getCacheConfiguration().locking().isolationLevel() ) ) {
 					assertEquals( VALUE1, callWithSession(sessionFactory, session -> region.get( session, KEY )) );
@@ -212,13 +219,9 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 				else {
 					assertEquals( VALUE2, callWithSession(sessionFactory, session -> region.get( session, KEY )) );
 				}
-
-				holder.checkExceptions();
 			}
 			finally {
-				if ( !unblocked ) {
-					blockerLatch.countDown();
-				}
+				blockerLatch.countDown();
 			}
 		});
 	}
@@ -388,12 +391,13 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 		});
 	}
 
+
 	@Listener
 	public class GetBlocker {
 		private final CountDownLatch latch;
 		private final Object key;
 
-		GetBlocker(CountDownLatch latch,	Object key) {
+		GetBlocker(CountDownLatch latch,   Object key) {
 			this.latch = latch;
 			this.key = key;
 		}
@@ -461,6 +465,20 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 			}
 			for (Exception e : exceptions) {
 				throw e;
+			}
+		}
+
+		public void assertTrue(String message, boolean condition) throws Exception {
+			checkExceptions();
+			if (!condition) {
+				Assert.fail(message);
+			}
+		}
+
+		public void assertFalse(String message, boolean condition) throws Exception {
+			checkExceptions();
+			if (condition) {
+				Assert.fail(message);
 			}
 		}
 	}
