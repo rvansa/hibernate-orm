@@ -2,13 +2,13 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply from: "./libraries.gradle"
 
-
 buildscript {
 	repositories {
 		mavenCentral()
 		mavenLocal()
 		jcenter()
 
+		
 		maven {
 			name 'jboss-nexus'
 			url "http://repository.jboss.org/nexus/content/groups/public/"
@@ -24,7 +24,7 @@ buildscript {
 		classpath 'org.hibernate.build.gradle:version-injection-plugin:1.0.0'
 		classpath 'org.hibernate.build.gradle:gradle-xjc-plugin:1.0.2.Final'
 		classpath 'com.github.lburgazzoli:lb-karaf-features-gen:1.0.0-SNAPSHOT'
-	}
+	}    
 }
 
 allprojects {
@@ -39,6 +39,11 @@ allprojects {
         maven {
             name "jboss-snapshots"
             url "http://snapshots.jboss.org/maven2/"
+        }
+
+        maven {
+		name 'alternative'
+       		url "file:///mnt/jenkins-workdir/workspace/infinispan-build-rvansa/maven_repo"
         }
     }
 }

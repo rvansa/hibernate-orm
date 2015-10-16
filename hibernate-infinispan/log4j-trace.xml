@@ -16,45 +16,9 @@
       <priority value="WARN"/>
    </category>
 
-   <category name="org.jgroups.protocols">
-   	<priority value="TRACE" />
-   </category>
-
-   <category name="org.infinispan">
-      <priority value="TRACE"/>
-   </category>
-
-   <category name="org.infinispan.factories">
-      <priority value="DEBUG"/>
-   </category>
-
-   <category name="org.infinispan.jmx">
-      <priority value="DEBUG"/>
-   </category>
-
-   <category name="org.hibernate">
-      <priority value="DEBUG"/>
-   </category>
-
-   <category name="org.hibernate.resource.jdbc">
-	<priority value="TRACE"/>
-   </category>
-   
-   <!-- This triggers NPE in AnyEquivalence in Infinispan 7.2.4 -->
-   <category name="org.infinispan.transaction.impl.TransactionTable">
-      <priority value="DEBUG"/>
-   </category>
-   
-   <category name="org.infinispan.marshall">
-      <priority value="DEBUG"/>
-   </category>
-
-   <category name="org.infinispan.commons.marshall">
-      <priority value="DEBUG"/>
-   </category>
 
    <root>
-      <priority value="TRACE"/>
+      <priority value="DEBUG"/>
       <appender-ref ref="CONSOLE"/>
    </root>
 
