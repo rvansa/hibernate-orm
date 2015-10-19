@@ -8,11 +8,13 @@ package org.hibernate.test.cache.infinispan;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Level;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -29,6 +31,7 @@ import org.hibernate.cache.spi.RegionFactory;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.test.cache.infinispan.util.CacheTestUtil;
+import org.hibernate.test.cache.infinispan.util.LoggingUtil;
 import org.hibernate.test.cache.infinispan.util.TestInfinispanRegionFactory;
 import org.infinispan.AdvancedCache;
 import org.jboss.logging.Logger;
@@ -109,6 +112,7 @@ public abstract class AbstractGeneralDataRegionTest extends AbstractRegionImplTe
 
 	private void evictOrRemoveTest() throws Exception {
 		withSessionFactoriesAndRegions(2, ((sessionFactories, regions) -> {
+			Map<org.apache.log4j.Logger, Level> loggerLevelMap = LoggingUtil.traceOn();
 			GeneralDataRegion localRegion = regions.get(0);
 			GeneralDataRegion remoteRegion = regions.get(1);
 			SessionImplementor localSession = (SessionImplementor) sessionFactories.get(0).openSession();
@@ -140,6 +144,7 @@ public abstract class AbstractGeneralDataRegionTest extends AbstractRegionImplTe
 			} finally {
 				( (Session) localSession).close();
 				( (Session) remoteSession).close();
+				LoggingUtil.traceOff(loggerLevelMap);
 			}
 		}));
 	}
