@@ -24,6 +24,7 @@ import org.hibernate.cache.spi.access.CollectionRegionAccessStrategy;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.test.cache.infinispan.AbstractRegionAccessStrategyTest;
 import org.hibernate.test.cache.infinispan.NodeEnvironment;
+import org.hibernate.test.cache.infinispan.util.ExceptionHolder;
 import org.hibernate.test.cache.infinispan.util.TestingKeyFactory;
 import org.infinispan.AdvancedCache;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -177,6 +178,7 @@ public class CollectionRegionAccessStrategyTest extends
 		final CountDownLatch writeLatch1 = new CountDownLatch( 1 );
 		final CountDownLatch writeLatch2 = new CountDownLatch( 1 );
 		final CountDownLatch completionLatch = new CountDownLatch( 2 );
+		final ExceptionHolder exceptionHolder = new ExceptionHolder();
 
 		Thread node1 = new Thread() {
 			@Override
@@ -197,11 +199,10 @@ public class CollectionRegionAccessStrategyTest extends
 					});
 				}
 				catch (Exception e) {
-					log.error( "node1 caught exception", e );
-					node1Exception = e;
+					exceptionHolder.addException(e);
 				}
 				catch (AssertionFailedError e) {
-					node1Failure = e;
+					exceptionHolder.addAssertionFailure(e);
 				}
 				finally {
 					// Let node2 write
@@ -211,7 +212,7 @@ public class CollectionRegionAccessStrategyTest extends
 			}
 		};
 
-		Thread node2 = new PutFromLoadNode2(KEY, writeLatch1, writeLatch2, useMinimalAPI, completionLatch);
+		Thread node2 = new PutFromLoadNode2(KEY, writeLatch1, writeLatch2, useMinimalAPI, completionLatch, exceptionHolder);
 
 		node1.setDaemon( true );
 		node2.setDaemon( true );
@@ -221,9 +222,7 @@ public class CollectionRegionAccessStrategyTest extends
 
 		assertTrue( "Threads completed", completionLatch.await( 2, TimeUnit.SECONDS ) );
 
-		assertThreadsRanCleanly();
-
-		long txTimestamp = System.currentTimeMillis();
+		exceptionHolder.checkExceptions();
 
 		SessionImplementor s1 = mockedSession();
 		assertEquals( VALUE2, localAccessStrategy.get(s1, KEY, s1.getTimestamp() ) );

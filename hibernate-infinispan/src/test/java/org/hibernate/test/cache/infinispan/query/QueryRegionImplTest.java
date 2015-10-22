@@ -6,9 +6,7 @@
  */
 package org.hibernate.test.cache.infinispan.query;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -30,8 +28,10 @@ import org.hibernate.test.cache.infinispan.AbstractGeneralDataRegionTest;
 import org.hibernate.test.cache.infinispan.util.CacheTestUtil;
 import junit.framework.AssertionFailedError;
 
+import org.hibernate.test.cache.infinispan.util.ExceptionHolder;
 import org.hibernate.testing.TestForIssue;
 import org.infinispan.AdvancedCache;
+import org.infinispan.commons.util.Util;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryVisited;
@@ -40,7 +40,6 @@ import org.infinispan.notifications.cachelistener.event.CacheEntryVisitedEvent;
 import org.infinispan.util.concurrent.IsolationLevel;
 
 import org.jboss.logging.Logger;
-import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -94,20 +93,19 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 
          final CountDownLatch readerLatch = new CountDownLatch(1);
          final CountDownLatch writerLatch = new CountDownLatch(1);
-         final CountDownLatch completionLatch = new CountDownLatch(1);
          final ExceptionHolder holder = new ExceptionHolder();
 
          Thread reader = new Thread() {
             @Override
             public void run() {
                try {
+                  assertTrue(readerLatch.await(10, TimeUnit.SECONDS));
                   assertNotEquals(VALUE2, callWithSession(sessionFactory, session -> region.get(session, KEY)));
+                  writerLatch.countDown();
                } catch (AssertionFailedError e) {
                   holder.addAssertionFailure(e);
                } catch (Exception e) {
                   holder.addException(e);
-               } finally {
-                  readerLatch.countDown();
                }
             }
          };
@@ -118,12 +116,13 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
                try {
                   withSession(sessionFactory, session -> {
                      region.put(session, KEY, VALUE2);
-                     writerLatch.await();
+                     readerLatch.countDown();
+                     assertTrue(writerLatch.await(10, TimeUnit.SECONDS));
                   });
+               } catch (AssertionFailedError e) {
+                  holder.addAssertionFailure(e);
                } catch (Exception e) {
                   holder.addException(e);
-               } finally {
-                  completionLatch.countDown();
                }
             }
          };
@@ -133,17 +132,16 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
             writer.setDaemon(true);
 
             writer.start();
-            holder.assertFalse("Writer is blocking", completionLatch.await(100, TimeUnit.MILLISECONDS));
-
-            // Start the reader
             reader.start();
-            holder.assertTrue("Reader finished promptly", readerLatch.await(100, TimeUnit.MILLISECONDS));
 
-            writerLatch.countDown();
-
-            holder.assertTrue("Writer finished promptly", completionLatch.await(100, TimeUnit.MILLISECONDS));
+            writer.join(10000);
+            reader.join(10000);
 
             holder.checkExceptions();
+
+            if (reader.isAlive() || writer.isAlive()) {
+               fail("Reader or writer did not finish within timeout:\n" + Util.threadDump());
+            }
 
             assertEquals(VALUE2, callWithSession(sessionFactory, session -> region.get(session, KEY)));
          } finally {
@@ -161,16 +159,18 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
          final AdvancedCache cache = ((QueryResultsRegionImpl) region).getCache();
          final CountDownLatch blockerLatch = new CountDownLatch( 1 );
          final CountDownLatch writerLatch = new CountDownLatch( 1 );
-         final CountDownLatch completionLatch = new CountDownLatch( 1 );
          final ExceptionHolder holder = new ExceptionHolder();
 
          Thread reader = new Thread() {
             @Override
             public void run() {
-               GetBlocker blocker = new GetBlocker( blockerLatch, KEY );
+               GetBlocker blocker = new GetBlocker(writerLatch, blockerLatch, KEY );
                try {
                   cache.addListener( blocker );
                   withSession(sessionFactory, session -> region.get(session, KEY ));
+               }
+               catch (AssertionFailedError e) {
+                  holder.addAssertionFailure(e);
                }
                catch (Exception e) {
                   holder.addException(e);
@@ -185,14 +185,17 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
             @Override
             public void run() {
                try {
-                  writerLatch.await();
-                  withSession(sessionFactory, session -> region.put( session, KEY, VALUE2 ));
+                  assertTrue(writerLatch.await(10, TimeUnit.SECONDS));
+                  withSession(sessionFactory, session -> region.put(session, KEY, VALUE2));
+               }
+               catch (AssertionFailedError e) {
+                  holder.addAssertionFailure(e);
                }
                catch (Exception e) {
                   holder.addException(e);
                }
                finally {
-                  completionLatch.countDown();
+                  blockerLatch.countDown();
                }
             }
          };
@@ -204,14 +207,14 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
             reader.start();
             writer.start();
 
-            holder.assertFalse( "Reader is blocking", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
-            // Start the writer
-            writerLatch.countDown();
-            holder.assertTrue( "Writer finished promptly", completionLatch.await( 100, TimeUnit.MILLISECONDS ) );
-
-            blockerLatch.countDown();
+            reader.join(10000);
+            writer.join(10000);
 
             holder.checkExceptions();
+
+            if (reader.isAlive() || writer.isAlive()) {
+               fail("Reader or writer did not finish within timeout:\n" + Util.threadDump());
+            }
 
             if ( IsolationLevel.REPEATABLE_READ.equals( cache.getCacheConfiguration().locking().isolationLevel() ) ) {
                assertEquals( VALUE1, callWithSession(sessionFactory, session -> region.get( session, KEY )) );
@@ -394,11 +397,13 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
 
    @Listener
    public class GetBlocker {
-      private final CountDownLatch latch;
+      private final CountDownLatch writerLatch;
+      private final CountDownLatch readerLatch;
       private final Object key;
 
-      GetBlocker(CountDownLatch latch,   Object key) {
-         this.latch = latch;
+      GetBlocker(CountDownLatch writerLatch, CountDownLatch readerLatch, Object key) {
+         this.writerLatch = writerLatch;
+         this.readerLatch = readerLatch;
          this.key = key;
       }
 
@@ -406,7 +411,8 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
       public void nodeVisisted(CacheEntryVisitedEvent event) {
          if ( event.isPre() && event.getKey().equals( key ) ) {
             try {
-               latch.await();
+               writerLatch.countDown();
+               assertTrue(readerLatch.await(10, TimeUnit.SECONDS));
             }
             catch (InterruptedException e) {
                log.error( "Interrupted waiting for latch", e );
@@ -446,40 +452,4 @@ public class QueryRegionImplTest extends AbstractGeneralDataRegionTest {
          }
       }
    }
-
-   private class ExceptionHolder {
-      private final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<>());
-      private final List<AssertionFailedError> assertionFailures = Collections.synchronizedList(new ArrayList<>());
-
-      public void addException(Exception e) {
-         exceptions.add(e);
-      }
-
-      public void addAssertionFailure(AssertionFailedError e) {
-         assertionFailures.add(e);
-      }
-
-      public void checkExceptions() throws Exception {
-         for (AssertionFailedError a : assertionFailures) {
-            throw a;
-         }
-         for (Exception e : exceptions) {
-            throw e;
-         }
-      }
-
-      public void assertTrue(String message, boolean condition) throws Exception {
-         checkExceptions();
-         if (!condition) {
-            Assert.fail(message);
-         }
-      }
-
-      public void assertFalse(String message, boolean condition) throws Exception {
-         checkExceptions();
-         if (condition) {
-            Assert.fail(message);
-         }
-      }
-   }	
 }

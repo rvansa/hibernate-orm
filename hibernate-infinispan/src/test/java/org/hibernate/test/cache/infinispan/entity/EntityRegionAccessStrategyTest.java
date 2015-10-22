@@ -17,14 +17,13 @@ import org.hibernate.cache.spi.access.SoftLock;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.test.cache.infinispan.AbstractRegionAccessStrategyTest;
 import org.hibernate.test.cache.infinispan.NodeEnvironment;
+import org.hibernate.test.cache.infinispan.util.ExceptionHolder;
 import org.hibernate.test.cache.infinispan.util.TestSynchronization;
 import org.hibernate.test.cache.infinispan.util.TestingKeyFactory;
+import org.infinispan.commons.util.Util;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.*;
 
 /**
  * Base class for tests of EntityRegionAccessStrategy impls.
@@ -92,6 +91,7 @@ public class EntityRegionAccessStrategyTest extends
       final CountDownLatch writeLatch1 = new CountDownLatch(1);
       final CountDownLatch writeLatch2 = new CountDownLatch(1);
       final CountDownLatch completionLatch = new CountDownLatch(2);
+      final ExceptionHolder exceptionHolder = new ExceptionHolder();
 
       Thread node1 = new Thread() {
          @Override
@@ -113,10 +113,9 @@ public class EntityRegionAccessStrategyTest extends
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
                // Let node2 write
                writeLatch2.countDown();
@@ -125,7 +124,7 @@ public class EntityRegionAccessStrategyTest extends
          }
       };
 
-      Thread node2 = new PutFromLoadNode2(KEY, writeLatch1, writeLatch2, useMinimalAPI, completionLatch);
+      Thread node2 = new PutFromLoadNode2(KEY, writeLatch1, writeLatch2, useMinimalAPI, completionLatch, exceptionHolder);
 
       node1.setDaemon(true);
       node2.setDaemon(true);
@@ -133,9 +132,7 @@ public class EntityRegionAccessStrategyTest extends
       node1.start();
       node2.start();
 
-      assertTrue("Threads completed", completionLatch.await(2, TimeUnit.SECONDS));
-
-      assertThreadsRanCleanly();
+      exceptionHolder.assertTrue("Threads completed", completionLatch.await(2, TimeUnit.SECONDS));
 
       SessionImplementor s1 = mockedSession();
       assertEquals( VALUE2, localAccessStrategy.get(s1, KEY, s1.getTimestamp()));
@@ -159,6 +156,7 @@ public class EntityRegionAccessStrategyTest extends
       final CountDownLatch readLatch = new CountDownLatch(1);
       final CountDownLatch commitLatch = new CountDownLatch(1);
       final CountDownLatch completionLatch = new CountDownLatch(2);
+      final ExceptionHolder exceptionHolder = new ExceptionHolder();
 
       Thread inserter = new Thread() {
 
@@ -176,10 +174,9 @@ public class EntityRegionAccessStrategyTest extends
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
 
                completionLatch.countDown();
@@ -199,10 +196,9 @@ public class EntityRegionAccessStrategyTest extends
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
                commitLatch.countDown();
                completionLatch.countDown();
@@ -215,9 +211,7 @@ public class EntityRegionAccessStrategyTest extends
       inserter.start();
       reader.start();
 
-      assertTrue("Threads completed", completionLatch.await(1000, TimeUnit.SECONDS));
-
-      assertThreadsRanCleanly();
+      exceptionHolder.assertTrue("Threads completed", completionLatch.await(1000, TimeUnit.SECONDS));
 
       SessionImplementor s1 = mockedSession();
       assertEquals("Correct node1 value", VALUE1, localAccessStrategy.get(s1, KEY, s1.getTimestamp()));
@@ -273,6 +267,7 @@ public class EntityRegionAccessStrategyTest extends
       final CountDownLatch readLatch = new CountDownLatch(1);
       final CountDownLatch commitLatch = new CountDownLatch(1);
       final CountDownLatch completionLatch = new CountDownLatch(2);
+      final ExceptionHolder exceptionHolder = new ExceptionHolder();
 
       Thread updater = new Thread("testUpdate-updater") {
          @Override
@@ -291,10 +286,9 @@ public class EntityRegionAccessStrategyTest extends
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
                if (readLatch.getCount() > 0) {
                   readLatch.countDown();
@@ -323,10 +317,9 @@ public class EntityRegionAccessStrategyTest extends
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
                commitLatch.countDown();
                log.debug("Completion latch countdown");
@@ -341,9 +334,7 @@ public class EntityRegionAccessStrategyTest extends
       reader.start();
 
       // Should complete promptly
-      assertTrue(completionLatch.await(2, TimeUnit.SECONDS));
-
-      assertThreadsRanCleanly();
+      exceptionHolder.assertTrue(completionLatch.await(2, TimeUnit.SECONDS));
 
       SessionImplementor s3 = mockedSession();
       assertEquals("Correct node1 value", VALUE2, localAccessStrategy.get(s3, KEY, s3.getTimestamp()));
@@ -371,9 +362,8 @@ public class EntityRegionAccessStrategyTest extends
       localAccessStrategy.putFromLoad(s1, KEY, VALUE1, s1.getTimestamp(), 1);
 
       final CountDownLatch pferLatch = new CountDownLatch(1);
-      final CountDownLatch pferCompletionLatch = new CountDownLatch(1);
       final CountDownLatch commitLatch = new CountDownLatch(1);
-      final CountDownLatch completionLatch = new CountDownLatch(1);
+      final ExceptionHolder exceptionHolder = new ExceptionHolder();
 
       Thread blocker = new Thread("Blocker") {
          @Override
@@ -386,16 +376,13 @@ public class EntityRegionAccessStrategyTest extends
                   doUpdate(localAccessStrategy, session, KEY, VALUE2, 2);
 
                   pferLatch.countDown();
-                  commitLatch.await();
+                  assertTrue(commitLatch.await(10, TimeUnit.SECONDS));
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
-            } finally {
-               completionLatch.countDown();
+               exceptionHolder.addAssertionFailure(e);
             }
          }
       };
@@ -404,32 +391,33 @@ public class EntityRegionAccessStrategyTest extends
          @Override
          public void run() {
             try {
+               assertTrue(pferLatch.await(10, TimeUnit.SECONDS));
                SessionImplementor session = mockedSession();
                withTx(localEnvironment, session, () -> {
-                  localAccessStrategy.putFromLoad(session, KEY, VALUE1, session.getTimestamp(), 1);
+                  boolean successful = localAccessStrategy.putFromLoad(session, KEY, VALUE1, session.getTimestamp(), 1);
+                  assertEquals(accessType == AccessType.NONSTRICT_READ_WRITE, successful);
                   return null;
                });
             } catch (Exception e) {
-               log.error("node1 caught exception", e);
-               node1Exception = e;
+               exceptionHolder.addException(e);
             } catch (AssertionFailedError e) {
-               node1Failure = e;
+               exceptionHolder.addAssertionFailure(e);
             } finally {
-               pferCompletionLatch.countDown();
+               commitLatch.countDown();
             }
          }
       };
 
       blocker.start();
-      assertTrue("Active tx has done an update", pferLatch.await(1, TimeUnit.SECONDS));
       putter.start();
-      assertTrue("putFromLoad returns promptly", pferCompletionLatch.await(200, TimeUnit.MILLISECONDS));
 
-      commitLatch.countDown();
+      blocker.join(10000);
+      putter.join(10000);
 
-      assertTrue("Threads completed", completionLatch.await(1, TimeUnit.SECONDS));
-
-      assertThreadsRanCleanly();
+      exceptionHolder.checkExceptions();
+      if (blocker.isAlive() || putter.isAlive()) {
+         fail("blocker or putter did not finish within timeout:\n" + Util.threadDump());
+      }
 
       SessionImplementor session = mockedSession();
       assertEquals("Correct node1 value", VALUE2, localAccessStrategy.get(session, KEY, session.getTimestamp()));
