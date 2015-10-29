@@ -16,7 +16,15 @@
       <priority value="WARN"/>
    </category>
 
-   <category name="org.jgroups">
+   <category name="org.infinispan.statetransfer.StateTransferManagerImpl">
+      <priority value="TRACE"/>
+   </category>
+
+   <category name="org.infinispan.executors.SemaphoreCompletionService">
+      <priority value="TRACE"/>
+   </category>
+
+   <category name="org.infinispan.topology.LocalTopologyManagerImpl">
       <priority value="TRACE"/>
    </category>
 
