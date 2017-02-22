@@ -56,14 +56,14 @@ public interface StorageAccess {
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
 	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
 	 *
-	 * @param session Current session.
+	 * @param cacheSynchronization
 	 * @param key The key of the item to be retrieved.
 	 *
 	 * @return the cached object or <tt>null</tt>
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	Object get(SharedSessionContractImplementor session, Object key) throws CacheException;
+	Object get(CacheSynchronization cacheSynchronization, Object key) throws CacheException;
 
 	/**
 	 * Attempt to cache an object, afterQuery loading from the database.
@@ -71,7 +71,7 @@ public interface StorageAccess {
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
 	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
 	 *
-	 * @param session Current session.
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param version the item version number
@@ -81,7 +81,7 @@ public interface StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean putFromLoad(
-			SharedSessionContractImplementor session,
+			CacheSynchronization cacheSynchronization,
 			Object key,
 			Object value,
 			Object version) throws CacheException;
@@ -93,7 +93,7 @@ public interface StorageAccess {
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
 	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
 	 *
-	 * @param session Current session.
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param version the item version number
@@ -104,7 +104,7 @@ public interface StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean putFromLoad(
-			SharedSessionContractImplementor session,
+			CacheSynchronization cacheSynchronization,
 			Object key,
 			Object value,
 			Object version,
@@ -118,7 +118,7 @@ public interface StorageAccess {
 	 * lock. Concurrency strategies which do not support client-visible
 	 * locks may silently return null.
 	 *
-	 * @param session Current session.
+	 * @param cacheSynchronization
 	 * @param key The key of the item to lock
 	 * @param version The item's current version value
 	 *
@@ -126,7 +126,7 @@ public interface StorageAccess {
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	SoftLock lockItem(SharedSessionContractImplementor session, Object key, Object version) throws CacheException;
+	SoftLock lockItem(CacheSynchronization cacheSynchronization, Object key, Object version) throws CacheException;
 
 	/**
 	 * Lock the entire region
@@ -142,13 +142,13 @@ public interface StorageAccess {
 	 * may not have been successful), afterQuery transaction completion.  This method
 	 * is used by "asynchronous" concurrency strategies.
 	 *
-	 * @param session Current session.
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param lock The lock previously obtained from {@link #lockItem}
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	void unlockItem(SharedSessionContractImplementor session, Object key, SoftLock lock) throws CacheException;
+	void unlockItem(CacheSynchronization cacheSynchronization, Object key, SoftLock lock) throws CacheException;
 
 	/**
 	 * Called afterQuery we have finished the attempted invalidation of the entire
@@ -164,12 +164,12 @@ public interface StorageAccess {
 	 * Called afterQuery an item has become stale (beforeQuery the transaction completes).
 	 * This method is used by "synchronous" concurrency strategies.
 	 *
-	 * @param session
+	 * @param cacheSynchronization
 	 * @param key The key of the item to remove
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	void remove(SharedSessionContractImplementor session, Object key) throws CacheException;
+	void remove(CacheSynchronization cacheSynchronization, Object key) throws CacheException;
 
 	/**
 	 * Called to evict data from the entire region

@@ -8,7 +8,6 @@ package org.hibernate.cache.spi.access;
 
 import org.hibernate.cache.CacheException;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.persister.entity.spi.EntityPersister;
 
 /**
@@ -40,6 +39,7 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * @param tenantIdentifier the tenant id, or null if multi-tenancy is not being used.
 	 * @return a key which can be used to identify this entity on this same region
 	 */
+	// TODO: does it make sense to expose this on StorageAccess rather than Hibernate using CacheKeysFactory directly?
 	Object generateCacheKey(
 			Object id,
 			EntityPersister persister,
@@ -59,28 +59,28 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * instead of calling evict().
 	 * This method is used by "synchronous" concurrency strategies.
 	 *
-	 * @param session Current session
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param version The item's version value
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean insert(SharedSessionContractImplementor session, Object key, Object value, Object version) throws CacheException;
+	boolean insert(CacheSynchronization cacheSynchronization, Object key, Object value, Object version) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been inserted (afterQuery the transaction completes),
 	 * instead of calling release().
 	 * This method is used by "asynchronous" concurrency strategies.
 	 *
-	 * @param session Current session
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param version The item's version value
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean afterInsert(SharedSessionContractImplementor session, Object key, Object value, Object version) throws CacheException;
+	boolean afterInsert(CacheSynchronization cacheSynchronization, Object key, Object value, Object version) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (beforeQuery the transaction completes),
@@ -88,7 +88,7 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * strategies.
 	 *
 	 *
-	 * @param session Current session
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param currentVersion The item's current version value
@@ -96,14 +96,14 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean update(SharedSessionContractImplementor session, Object key, Object value, Object currentVersion, Object previousVersion) throws CacheException;
+	boolean update(CacheSynchronization cacheSynchronization, Object key, Object value, Object currentVersion, Object previousVersion) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (afterQuery the transaction completes),
 	 * instead of calling release().  This method is used by "asynchronous"
 	 * concurrency strategies.
 	 *
-	 * @param session Current session
+	 * @param cacheSynchronization
 	 * @param key The item key
 	 * @param value The item
 	 * @param currentVersion The item's current version value
@@ -113,7 +113,7 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean afterUpdate(
-			SharedSessionContractImplementor session,
+			CacheSynchronization cacheSynchronization,
 			Object key,
 			Object value,
 			Object currentVersion,
