@@ -26,9 +26,9 @@ import org.hibernate.persister.entity.spi.EntityPersister;
  * {@link #lockRegion} -> {@link #removeAll} -> {@link #unlockRegion}
  * <p/>
  * IMPORTANT : NaturalIds are not versioned so {@code null} will always be passed to the version parameter to:<ul>
- *     <li>{@link #putFromLoad(CacheSynchronization, Object, Object,  Object)}</li>
- *     <li>{@link #putFromLoad(CacheSynchronization, Object, Object, Object, boolean)}</li>
- *     <li>{@link #lockItem(CacheSynchronization, Object, Object)}</li>
+ *     <li>{@link #putFromLoad(StorageAccessContext, Object, Object,  Object)}</li>
+ *     <li>{@link #putFromLoad(StorageAccessContext, Object, Object, Object, boolean)}</li>
+ *     <li>{@link #lockItem(StorageAccessContext, Object, Object)}</li>
  * </ul>
  *
  * @author Gavin King
@@ -63,51 +63,51 @@ public interface NaturalIdStorageAccess extends StorageAccess {
 	 * instead of calling evict().
 	 * This method is used by "synchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean insert(CacheSynchronization cacheSynchronization, Object key, Object value) throws CacheException;
+	boolean insert(StorageAccessContext storageAccessContext, Object key, Object value) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been inserted (afterQuery the transaction completes),
 	 * instead of calling release().
 	 * This method is used by "asynchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean afterInsert(CacheSynchronization cacheSynchronization, Object key, Object value) throws CacheException;
+	boolean afterInsert(StorageAccessContext storageAccessContext, Object key, Object value) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (beforeQuery the transaction completes),
 	 * instead of calling evict(). This method is used by "synchronous" concurrency
 	 * strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean update(CacheSynchronization cacheSynchronization, Object key, Object value) throws CacheException;
+	boolean update(StorageAccessContext storageAccessContext, Object key, Object value) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (afterQuery the transaction completes),
 	 * instead of calling release().  This method is used by "asynchronous"
 	 * concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param lock The lock previously obtained from {@link #lockItem}
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propogated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean afterUpdate(CacheSynchronization cacheSynchronization, Object key, Object value, SoftLock lock) throws CacheException;
+	boolean afterUpdate(StorageAccessContext storageAccessContext, Object key, Object value, SoftLock lock) throws CacheException;
 }

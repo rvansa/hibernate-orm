@@ -21,6 +21,8 @@ import org.hibernate.Interceptor;
 import org.hibernate.ScrollMode;
 import org.hibernate.SharedSessionContract;
 import org.hibernate.Transaction;
+import org.hibernate.cache.spi.RegionFactory;
+import org.hibernate.cache.spi.access.StorageAccessContext;
 import org.hibernate.collection.spi.PersistentCollection;
 import org.hibernate.engine.jdbc.LobCreationContext;
 import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
@@ -147,21 +149,19 @@ public interface SharedSessionContractImplementor
 
 	/**
 	 * A system time {@link System#currentTimeMillis()} before the start of
-	 * the current transaction
+	 * the last transaction in current session as provided by {@link RegionFactory#nextTimestamp()}
 	 *
-	 * @deprecated (since 6.0) Renamed {@link #getTransactionStartTimestamp()}
+	 * @deprecated (since 6.0) Moved to {@link StorageAccessContext#transactionStartTimestamp()} ()}
 	 * to better suggest the intent of the method.
 	 */
 	@Deprecated
 	long getTimestamp();
 
 	/**
-	 * A system time {@link System#currentTimeMillis()} before the start of
-	 * the current transaction
-	 */
-	default long getTransactionStartTimestamp() {
-		return getTimestamp();
-	}
+	 * @return Current storage access context or <code>null</code> if this was not created yet, or if
+	 * {@link RegionFactory#startStorageAccess()} returned <code>null</code>.
+    */
+	StorageAccessContext getCacheContext();
 
 	/**
 	 * Does this <tt>Session</tt> have an active Hibernate transaction

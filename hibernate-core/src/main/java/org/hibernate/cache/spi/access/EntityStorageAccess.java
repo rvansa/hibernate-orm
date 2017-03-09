@@ -59,28 +59,28 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * instead of calling evict().
 	 * This method is used by "synchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param version The item's version value
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean insert(CacheSynchronization cacheSynchronization, Object key, Object value, Object version) throws CacheException;
+	boolean insert(StorageAccessContext storageAccessContext, Object key, Object value, Object version) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been inserted (afterQuery the transaction completes),
 	 * instead of calling release().
 	 * This method is used by "asynchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param version The item's version value
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean afterInsert(CacheSynchronization cacheSynchronization, Object key, Object value, Object version) throws CacheException;
+	boolean afterInsert(StorageAccessContext storageAccessContext, Object key, Object value, Object version) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (beforeQuery the transaction completes),
@@ -88,7 +88,7 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * strategies.
 	 *
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param currentVersion The item's current version value
@@ -96,14 +96,14 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * @return Were the contents of the cache actual changed by this operation?
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	boolean update(CacheSynchronization cacheSynchronization, Object key, Object value, Object currentVersion, Object previousVersion) throws CacheException;
+	boolean update(StorageAccessContext storageAccessContext, Object key, Object value, Object currentVersion, Object previousVersion) throws CacheException;
 
 	/**
 	 * Called afterQuery an item has been updated (afterQuery the transaction completes),
 	 * instead of calling release().  This method is used by "asynchronous"
 	 * concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param currentVersion The item's current version value
@@ -113,7 +113,7 @@ public interface EntityStorageAccess extends StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean afterUpdate(
-			CacheSynchronization cacheSynchronization,
+			StorageAccessContext storageAccessContext,
 			Object key,
 			Object value,
 			Object currentVersion,

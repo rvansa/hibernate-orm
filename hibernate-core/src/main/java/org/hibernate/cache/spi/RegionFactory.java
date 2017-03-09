@@ -12,7 +12,7 @@ import java.util.Properties;
 import org.hibernate.boot.spi.SessionFactoryOptions;
 import org.hibernate.cache.CacheException;
 import org.hibernate.cache.spi.access.AccessType;
-import org.hibernate.cache.spi.access.CacheSynchronization;
+import org.hibernate.cache.spi.access.StorageAccessContext;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.service.Service;
 import org.hibernate.service.spi.Stoppable;
@@ -106,20 +106,18 @@ public interface RegionFactory extends Service, Stoppable {
 	/**
 	 * Generate a timestamp.
 	 * <p/>
-	 * Used by Session to generate its
-	 * {@link SharedSessionContractImplementor#getTransactionStartTimestamp()} value.
+	 * Used by Session to generate its {@link StorageAccessContext#transactionStartTimestamp()} value.
 	 * <p/>
 	 * This is generally used for cache content locking/unlocking purposes
 	 * depending upon the access-strategy being used.
 	 */
+	@Deprecated
 	long nextTimestamp();
 
 	/**
 	 * Invoked before first modifying operation on {@link org.hibernate.cache.spi.access.StorageAccess} is invoked.
 	 *
 	 * Implementations are free to return <code>null</code>.
-	 *
-	 * @param transactionStartTimestamp The same value as {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
     */
-	CacheSynchronization startTransaction(long transactionStartTimestamp);
+	StorageAccessContext startStorageAccess();
 }

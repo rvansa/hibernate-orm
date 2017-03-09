@@ -8,7 +8,6 @@ package org.hibernate.cache.spi.access;
 
 import org.hibernate.cache.CacheException;
 import org.hibernate.cache.spi.CacheableRegion;
-import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.persister.common.NavigableRole;
 
 /**
@@ -54,24 +53,24 @@ public interface StorageAccess {
 	 * to resolve entities/collections from the second level cache.
 	 * <p/>
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
-	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
+	 * is already available via {@link StorageAccessContext#transactionStartTimestamp()}
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The key of the item to be retrieved.
 	 *
 	 * @return the cached object or <tt>null</tt>
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	Object get(CacheSynchronization cacheSynchronization, Object key) throws CacheException;
+	Object get(StorageAccessContext storageAccessContext, Object key) throws CacheException;
 
 	/**
 	 * Attempt to cache an object, afterQuery loading from the database.
 	 * <p/>
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
-	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
+	 * is already available via {@link StorageAccessContext#transactionStartTimestamp()}
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param version the item version number
@@ -81,7 +80,7 @@ public interface StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean putFromLoad(
-			CacheSynchronization cacheSynchronization,
+			StorageAccessContext storageAccessContext,
 			Object key,
 			Object value,
 			Object version) throws CacheException;
@@ -91,9 +90,9 @@ public interface StorageAccess {
 	 * specifying the minimalPut behavior.
 	 * <p/>
 	 * Note, this method used to accept {@code long txTimestamp}.  But that information
-	 * is already available via {@link SharedSessionContractImplementor#getTransactionStartTimestamp()}
+	 * is already available via {@link StorageAccessContext#transactionStartTimestamp()}
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param value The item
 	 * @param version the item version number
@@ -104,7 +103,7 @@ public interface StorageAccess {
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
 	boolean putFromLoad(
-			CacheSynchronization cacheSynchronization,
+			StorageAccessContext storageAccessContext,
 			Object key,
 			Object value,
 			Object version,
@@ -118,7 +117,7 @@ public interface StorageAccess {
 	 * lock. Concurrency strategies which do not support client-visible
 	 * locks may silently return null.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The key of the item to lock
 	 * @param version The item's current version value
 	 *
@@ -126,7 +125,7 @@ public interface StorageAccess {
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	SoftLock lockItem(CacheSynchronization cacheSynchronization, Object key, Object version) throws CacheException;
+	SoftLock lockItem(StorageAccessContext storageAccessContext, Object key, Object version) throws CacheException;
 
 	/**
 	 * Lock the entire region
@@ -142,13 +141,13 @@ public interface StorageAccess {
 	 * may not have been successful), afterQuery transaction completion.  This method
 	 * is used by "asynchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The item key
 	 * @param lock The lock previously obtained from {@link #lockItem}
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	void unlockItem(CacheSynchronization cacheSynchronization, Object key, SoftLock lock) throws CacheException;
+	void unlockItem(StorageAccessContext storageAccessContext, Object key, SoftLock lock) throws CacheException;
 
 	/**
 	 * Called afterQuery we have finished the attempted invalidation of the entire
@@ -164,12 +163,12 @@ public interface StorageAccess {
 	 * Called afterQuery an item has become stale (beforeQuery the transaction completes).
 	 * This method is used by "synchronous" concurrency strategies.
 	 *
-	 * @param cacheSynchronization
+	 * @param storageAccessContext
 	 * @param key The key of the item to remove
 	 *
 	 * @throws CacheException Propagated from underlying {@link org.hibernate.cache.spi.Region}
 	 */
-	void remove(CacheSynchronization cacheSynchronization, Object key) throws CacheException;
+	void remove(StorageAccessContext storageAccessContext, Object key) throws CacheException;
 
 	/**
 	 * Called to evict data from the entire region
