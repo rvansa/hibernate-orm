@@ -46,7 +46,9 @@ import org.hibernate.test.cache.infinispan.util.BatchModeTransactionCoordinator;
 import org.hibernate.test.cache.infinispan.util.InfinispanTestingSetup;
 import org.hibernate.test.cache.infinispan.util.ExpectingInterceptor;
 import org.hibernate.test.cache.infinispan.util.JdbcResourceTransactionMock;
+import org.hibernate.test.cache.infinispan.util.TestInfinispanRegionFactory;
 import org.hibernate.test.cache.infinispan.util.TestSynchronization;
+import org.hibernate.test.cache.infinispan.util.TestTimeService;
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
 import org.infinispan.commands.write.InvalidateCommand;
@@ -83,6 +85,8 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 	public static final String VALUE2 = "VALUE2";
 	public static final CacheDataDescription CACHE_DATA_DESCRIPTION
 			= new CacheDataDescriptionImpl(true, true, ComparableComparator.INSTANCE, null);
+
+	protected static final TestTimeService TIME_SERVICE = new TestTimeService();
 
 	protected NodeEnvironment localEnvironment;
 	protected R localRegion;
@@ -121,9 +125,6 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 		invalidation = Caches.isInvalidationCache(localRegion.getCache());
 		synchronous = Caches.isSynchronousCache(localRegion.getCache());
 
-		// Sleep a bit to avoid concurrent FLUSH problem
-		avoidConcurrentFlush();
-
 		remoteEnvironment = new NodeEnvironment( ssrb );
 		remoteEnvironment.prepare();
 
@@ -131,6 +132,14 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 		remoteAccessStrategy = getAccessStrategy(remoteRegion);
 
 		waitForClusterToForm(localRegion.getCache(), remoteRegion.getCache());
+	}
+
+
+	@Override
+	protected StandardServiceRegistryBuilder createStandardServiceRegistryBuilder() {
+		StandardServiceRegistryBuilder ssrb = super.createStandardServiceRegistryBuilder();
+		ssrb.applySetting(TestInfinispanRegionFactory.TIME_SERVICE, TIME_SERVICE);
+		return ssrb;
 	}
 
 	/**
@@ -270,7 +279,7 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 	protected SessionImplementor mockedSession() {
 		SessionMock session = mock(SessionMock.class);
 		when(session.isClosed()).thenReturn(false);
-		when(session.getTimestamp()).thenReturn(System.currentTimeMillis());
+		when(session.getTimestamp()).thenReturn(TIME_SERVICE.wallClockTime());
 		if (jtaPlatform == BatchModeJtaPlatform.class) {
 			BatchModeTransactionCoordinator txCoord = new BatchModeTransactionCoordinator();
 			when(session.getTransactionCoordinator()).thenReturn(txCoord);
@@ -300,6 +309,7 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 			NonJtaTransactionCoordinator txOwner = mock(NonJtaTransactionCoordinator.class);
 			when(txOwner.getResourceLocalTransaction()).thenReturn(new JdbcResourceTransactionMock());
 			when(txOwner.getJdbcSessionOwner()).thenReturn(jdbcSessionOwner);
+			when(txOwner.isActive()).thenReturn(true);
 			TransactionCoordinator txCoord = JdbcResourceLocalTransactionCoordinatorBuilderImpl.INSTANCE
 							.buildTransactionCoordinator(txOwner, null);
 			when(session.getTransactionCoordinator()).thenReturn(txCoord);
@@ -381,7 +391,7 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 		SessionImplementor s3 = mockedSession();
 		localAccessStrategy.putFromLoad(s3, KEY, VALUE1, s3.getTimestamp(), 1);
 		SessionImplementor s5 = mockedSession();
-		remoteAccessStrategy.putFromLoad(s5, KEY, VALUE1, s5.getTimestamp(), new Integer(1));
+		remoteAccessStrategy.putFromLoad(s5, KEY, VALUE1, s5.getTimestamp(), 1);
 
 		// putFromLoad is applied on local node synchronously, but if there's a concurrent update
 		// from the other node it can silently fail when acquiring the loc . Then we could try to read
@@ -483,15 +493,18 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 		if (invalidation && !evict) {
 			// removeAll causes transactional remove commands which trigger EndInvalidationCommands on the remote side
 			// if the cache is non-transactional, PutFromLoadValidator.registerRemoteInvalidations cannot find
-			// current session nor register tx synchronization, so it falls back to simpe InvalidationCommand.
+			// current session nor register tx synchronization, so it falls back to simple InvalidationCommand.
 			endInvalidationLatch = new CountDownLatch(1);
 			if (transactional) {
 				PutFromLoadValidator originalValidator = PutFromLoadValidator.removeFromCache(remoteRegion.getCache());
 				assertEquals(PutFromLoadValidator.class, originalValidator.getClass());
 				PutFromLoadValidator mockValidator = spy(originalValidator);
 				doAnswer(invocation -> {
-					endInvalidationLatch.countDown();
-					return invocation.callRealMethod();
+					try {
+						return invocation.callRealMethod();
+					} finally {
+						endInvalidationLatch.countDown();
+					}
 				}).when(mockValidator).endInvalidatingKey(any(), any());
 				PutFromLoadValidator.addToCache(remoteRegion.getCache(), mockValidator);
 				cleanup.add(() -> {
@@ -518,19 +531,17 @@ public abstract class AbstractRegionAccessStrategyTest<R extends BaseRegion, S e
 			}
 			return null;
 		});
-		// This should re-establish the region root node in the optimistic case
 		SessionImplementor s7 = mockedSession();
 		assertNull(localAccessStrategy.get(s7, KEY, s7.getTimestamp()));
 		assertEquals( 0, localRegion.getCache().size() );
 
-		// Re-establishing the region root on the local node doesn't
-		// propagate it to other nodes. Do a get on the remote node to re-establish
 		SessionImplementor s8 = mockedSession();
 		assertNull(remoteAccessStrategy.get(s8, KEY, s8.getTimestamp()));
 		assertEquals(0, remoteRegion.getCache().size());
 
 		// Wait for async propagation of EndInvalidationCommand before executing naked put
 		assertTrue(endInvalidationLatch.await(1, TimeUnit.SECONDS));
+		TIME_SERVICE.advance(1);
 
 		CountDownLatch lastPutFromLoadLatch = expectRemotePutFromLoad(remoteRegion.getCache(), localRegion.getCache());
 
